@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>강의실 예약</title>
+<script src="https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js"></script>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 640px; margin: 0 auto; padding: 16px; background: #f6f7f9; color: #222; }
+  section { background: #fff; border-radius: 10px; padding: 14px; margin-bottom: 14px; box-shadow: 0 1px 3px #0002; }
+  h1 { font-size: 22px; } h2 { font-size: 17px; margin: 0 0 10px; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; }
+  input, button { font-size: 16px; padding: 8px; border: 1px solid #bbb; border-radius: 6px; }
+  input { width: 90px; } input.name { width: 120px; }
+  button { background: #2563eb; color: #fff; border: none; cursor: pointer; }
+  button:disabled { background: #999; }
+  .msg { margin-top: 10px; font-size: 22px; font-weight: bold; min-height: 28px; }
+  .ok { color: #15803d; } .fail { color: #dc2626; font-size: 32px; }
+  table { border-collapse: collapse; width: 100%; margin-top: 10px; }
+  td, th { border: 1px solid #ddd; padding: 6px; text-align: center; }
+</style>
+</head>
+<body>
+<h1>강의실 예약 시스템</h1>
+<p id="status">solution.py 불러오는 중…</p>
+
+<datalist id="rooms"><option>A101</option><option>A102</option><option>B201</option></datalist>
+<datalist id="days"><option>월</option><option>화</option><option>수</option><option>목</option><option>금</option></datalist>
+
+<section>
+  <h2>예약</h2>
+  <div class="row">
+    <input id="b-room" list="rooms" placeholder="강의실">
+    <input id="b-day" list="days" placeholder="요일">
+    <input id="b-start" type="number" step="any" placeholder="시작">
+    <input id="b-end" type="number" step="any" placeholder="끝">
+    <input id="b-name" class="name" placeholder="이름">
+    <button onclick="doBook()" disabled>예약</button>
+  </div>
+  <div id="b-msg" class="msg"></div>
+</section>
+
+<section>
+  <h2>취소</h2>
+  <div class="row">
+    <input id="c-room" list="rooms" placeholder="강의실">
+    <input id="c-day" list="days" placeholder="요일">
+    <input id="c-start" type="number" step="any" placeholder="시작">
+    <input id="c-name" class="name" placeholder="이름">
+    <button onclick="doCancel()" disabled>취소</button>
+  </div>
+  <div id="c-msg" class="msg"></div>
+</section>
+
+<section>
+  <h2>시간표</h2>
+  <div class="row">
+    <input id="s-room" list="rooms" placeholder="강의실">
+    <input id="s-day" list="days" placeholder="요일">
+    <button onclick="doSchedule()" disabled>보기</button>
+  </div>
+  <div id="s-out"></div>
+</section>
+
+<script>
+let rb;
+const v = id => document.getElementById(id).value.trim();
+// 빈 칸은 NaN → Python float 로 넘어가서 solution.py 가 거절함
+const num = id => v(id) === "" ? NaN : Number(v(id));
+
+function show(id, ok, okText, failText) {
+  const el = document.getElementById(id);
+  el.className = "msg " + (ok ? "ok" : "fail");
+  el.textContent = ok ? okText : failText;
+}
+
+function doBook() {
+  const ok = rb.book(v("b-room"), v("b-day"), num("b-start"), num("b-end"), v("b-name"));
+  show("b-msg", ok, "✅ 성공: 예약되었습니다", "❌ 실패: 예약할 수 없습니다");
+  if (ok) { s_room.value = v("b-room"); s_day.value = v("b-day"); doSchedule(); }
+}
+
+function doCancel() {
+  const ok = rb.cancel(v("c-room"), v("c-day"), num("c-start"), v("c-name"));
+  show("c-msg", ok, "✅ 성공: 취소되었습니다", "❌ 실패: 취소할 수 없습니다");
+  if (ok) { s_room.value = v("c-room"); s_day.value = v("c-day"); doSchedule(); }
+}
+
+function doSchedule() {
+  const list = rb.get_schedule(v("s-room"), v("s-day")).toJs();
+  const out = document.getElementById("s-out");
+  if (list.length === 0) { out.innerHTML = "<p>예약이 없습니다</p>"; return; }
+  out.innerHTML = "<table><tr><th>시작</th><th>끝</th><th>이름</th></tr>" +
+    list.map(([s, e, n]) => `<tr><td>${s}시</td><td>${e}시</td><td>${String(n).replace(/</g, "&lt;")}</td></tr>`).join("") +
+    "</table>";
+}
+
+const s_room = document.getElementById("s-room"), s_day = document.getElementById("s-day");
+
+(async () => {
+  try {
+    const py = await loadPyodide();
+    // 웹에 규칙을 따로 만들지 않고 solution.py 를 그대로 실행
+    py.runPython(await (await fetch("solution.py", { cache: "no-store" })).text());
+    rb = py.globals.get("RoomBooking")();
+    document.querySelectorAll("button").forEach(b => b.disabled = false);
+    document.getElementById("status").textContent = "준비 완료 (solution.py 사용 중)";
+  } catch (e) {
+    document.getElementById("status").textContent = "불러오기 실패: " + e;
+  }
+})();
+</script>
+</body>
+</html>
