@@ -204,7 +204,7 @@ td.num, th.num { text-align: right; }
             <label>강의실<select name="room"></select></label>
             <label>요일<select name="day"></select></label>
             <label>시작 시각<input name="start" type="number" step="any" inputmode="numeric" placeholder="예: 13"></label>
-            <label>이름<input name="name" placeholder="예약자 이름"></label>
+            <label class="wide">이름 (예약한 사람)<input name="name" autocomplete="name" placeholder="예: 김민수"></label>
             <div class="actions wide"><button class="btn ghost" disabled>취소하기</button></div>
           </form>
           <div class="result" id="cancel-result" role="status"></div>
